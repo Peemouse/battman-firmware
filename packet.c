@@ -15,6 +15,7 @@
 #include "fw_updater.h"
 #include "stm32f30x_conf.h"
 #include "faults.h"
+#include "power.h"
 #include "crc.h"
 
 #define PACKET_TIMEOUT 1000
@@ -154,6 +155,8 @@ static void process_packet(unsigned char *data, unsigned int len)
             utils_append_float32(packet_send_buffer, current_monitor_get_current(), &inx);
             utils_append_float32(packet_send_buffer, charger_get_output_voltage(), &inx);
             packet_send_buffer[inx++] = faults_get_faults();
+            utils_append_uint16(packet_send_buffer, faults_get_warnings(), &inx); //Added
+			packet_send_buffer[inx++] = power_get_status(); //Added
             packet_send_buffer[inx++] = charger_is_charging();
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
             break;
@@ -201,7 +204,7 @@ static void process_packet(unsigned char *data, unsigned int len)
             memcpy(packet_send_buffer + inx, config_get_configuration(), sizeof(Config));
             inx += sizeof(Config);
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
-            break;
+            break;	
         default:
             break;
     }

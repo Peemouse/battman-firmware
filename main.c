@@ -16,6 +16,7 @@
 #include "soc.h"
 #include "analog.h"
 #include "rtcc.h"
+#include "temp.h"
 #include "buzzer.h"
 #include "accessory.h"
 #include "faults.h"
@@ -45,7 +46,8 @@ static THD_FUNCTION(led_update, arg) {
         }
         uint16_t blinkTime = 500;
         if (comm_usb_is_active())
-            blinkTime = 250;
+            blinkTime = 700;
+        else {blinkTime = 500;}
         if (packet_connect_event())
         {
             led_rgb_set(0x00FFFF);
@@ -75,6 +77,13 @@ static THD_FUNCTION(led_update, arg) {
             led_rgb_set(0);
             chThdSleepMilliseconds(200);
         }
+        else if (faults_get_warnings() != WARNING_NONE)
+        {
+            led_rgb_set(0xFFC000);
+            chThdSleepMilliseconds(200);
+            led_rgb_set(0);
+            chThdSleepMilliseconds(200);
+        }
         else if (charger_is_balancing())
         {
             led_rgb_set(0x0000FF);
@@ -92,9 +101,12 @@ static THD_FUNCTION(led_update, arg) {
         else
         {
             led_rgb_set(0x00FF00);
-            chThdSleepMilliseconds(blinkTime);
-            led_rgb_set(0);
-            chThdSleepMilliseconds(blinkTime);
+            //if (blinkTime>0) {
+				chThdSleepMilliseconds(blinkTime);
+				led_rgb_set(0);
+				chThdSleepMilliseconds(blinkTime);
+            //}
+ 
         }
     }
 }
@@ -175,6 +187,7 @@ int main(void) {
     current_monitor_init();
     soc_init();
     rtcc_init();
+	temp_init(); //Added
     accessory_init();
     comm_can_init();
     buzzer_init();
@@ -182,6 +195,7 @@ int main(void) {
     led_rgb_init();
     chThdCreateStatic(led_update_wa, sizeof(led_update_wa), NORMALPRIO, led_update, NULL);
     comm_usb_init();
+	
 
     while(1)
     {
@@ -192,6 +206,7 @@ int main(void) {
         charger_update();
         power_update();
         rtcc_update();
+		temp_update(); //Added
         accessory_update();
         comm_can_update();
         if (power_is_shutdown())

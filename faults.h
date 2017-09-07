@@ -14,7 +14,8 @@ bool faults_check_fault(Fault fault);
 void faults_set_warning(Warning warning);
 void faults_clear_warning(Warning warning);
 void faults_clear_all_warnings(void);
-uint8_t faults_get_warnings(void);
+uint16_t faults_get_warnings(void);
 bool faults_check_warning(Warning warning);
+void faults_values_snapshot(void);
 
 #endif /* _FAULTS_H_ */

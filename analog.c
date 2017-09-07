@@ -65,7 +65,7 @@ void analog_update(void)
     adcsample_t samples4[1];
     adcConvert(&ADCD4, &adc4, samples4, 1);
     thermistor = samples4[0];
-    if (analog_temperature() > 100)
+    if (analog_temperature() > 100) //To move in temperature control
         faults_set_fault(FAULT_BOARD_TEMP);
 }
 

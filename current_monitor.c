@@ -38,6 +38,7 @@ static const EXTConfig extcfg = {
 };
 
 static volatile Config *config;
+static volatile systime_t overContCurrentTime;
 static volatile float current;
 static volatile float coulomb_count;
 static volatile float voltage;
@@ -51,14 +52,14 @@ void current_monitor_init(void)
     uint8_t tx[3];
     uint8_t rx[2];
     uint16_t current_cal = 4183;
-    tx[0] = 0x05;
+    tx[0] = 0x05; //Calibration Register access
     tx[1] = (uint8_t)(current_cal >> 7);
     tx[2] = (uint8_t)((current_cal & 0xFF) << 1);
     i2cMasterTransmitTimeout(&I2C_DEV, I2C_ADDRESS, tx, 3, rx, 0, MS2ST(10));
     current_monitor_set_overcurrent(config->maxCurrentCutoff);
-    tx[0] = 0x09;
+    tx[0] = 0x09; //Aux Control Register access
     tx[1] = 0x00;
-    tx[2] = 0x80;
+    tx[2] = 0x80; //Force ISL28022 Interrupt pin to low
     i2cMasterTransmitTimeout(&I2C_DEV, I2C_ADDRESS, tx, 3, rx, 0, MS2ST(10));
 }
 
@@ -71,21 +72,43 @@ void current_monitor_update(void)
     /*i2cMasterTransmitTimeout(&I2C_DEV, I2C_ADDRESS, tx, 1, rx, 2, MS2ST(10));*/
     /*int16_t current_value = (rx[0] << 8) | rx[1];*/
     /*current = current_value * 0.01958504192;*/
-    tx[0] = 0x01;
+	
+    tx[0] = 0x01; //Shunt Voltage register access
     i2cMasterTransmitTimeout(&I2C_DEV, I2C_ADDRESS, tx, 1, rx, 2, MS2ST(10));
     int16_t shunt_value = (rx[0] << 8) | rx[1];
-    float shunt_voltage = shunt_value * 1.0e-5;
+    float shunt_voltage = shunt_value * 1.0e-5; //Resolution 10uV
     current = shunt_voltage / 0.0005;
-    tx[0] = 0x02;
+	
+    tx[0] = 0x02; //Bus Voltage register access
     i2cMasterTransmitTimeout(&I2C_DEV, I2C_ADDRESS, tx, 1, rx, 2, MS2ST(10));
     int16_t voltage_value = (rx[0] << 6) | (rx[1] >> 2);
-    voltage = voltage_value * 0.004;
+    voltage = voltage_value * 0.004; //Resolution 4mV
+	
     i2cReleaseBus(&I2C_DEV);
+	
     if (current > config->maxCurrentCutoff || !palReadPad(CURR_ALERT_GPIO, CURR_ALERT_PIN))
     {
         power_disable_discharge();
         faults_set_fault(FAULT_OVERCURRENT);
     }
+	
+	if (current <= config->maxContinuousCurrent) {
+		overContCurrentTime = chVTGetSystemTime();	
+	}
+	else {
+		if (chVTTimeElapsedSinceX(overContCurrentTime) >= (config->continuousCurrentCutoffTime * 1000)) {
+			power_disable_discharge();
+			faults_set_fault(FAULT_OVERCURRENT);
+		}
+	}
+	
+	if (current > config->continuousCurrentCutoffWarning) {
+		faults_set_warning(WARNING_OVERCURRENT);
+	
+}
+	// TODO : clear warning ?
+	
+	
 }
 
 float current_monitor_get_current(void)
@@ -122,7 +145,7 @@ void current_monitor_set_overcurrent(float current_threshold)
     int8_t value_min = -value_max;
     uint8_t tx[3];
     uint8_t rx[2];
-    tx[0] = 0x06;
+    tx[0] = 0x06; //Shunt Voltage Threshold
     tx[1] = *(uint8_t*)&value_max;
     tx[2] = *(uint8_t*)&value_min;
     i2cMasterTransmitTimeout(&I2C_DEV, I2C_ADDRESS, tx, 3, rx, 0, MS2ST(10));

@@ -7,5 +7,6 @@ void soc_init(void);
 void soc_update(void);
 float soc_get_coulomb_count(void);
 float soc_get_relative_soc(void);
+float soc_get_battery_IR(void);
 
 #endif /* _SOC_H_ */

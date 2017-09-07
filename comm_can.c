@@ -6,6 +6,7 @@
 #include <string.h>
 #include "config.h"
 #include "utils.h"
+#include "power.h"
 
 #define RX_FRAMES_SIZE  100
 
@@ -36,6 +37,7 @@ void comm_can_init(void)
 }
 
 static float infinity_current = 99;
+
 static THD_FUNCTION(can_read_thread, arg) {
     (void)arg;
     chRegSetThreadName("CAN read");
@@ -87,7 +89,10 @@ static THD_FUNCTION(can_process_thread, arg) {
 		uint8_t receiver = (rxmsg.EID >> 8) & 0xFF;
 		CANPacketID id = rxmsg.EID >> 16;
 		if ((receiver == CAN_BROADCAST || receiver == config->CANDeviceID) && sender != config->CANDeviceID) {
-		    switch (id) {
+		    switch (id) { 
+			case CAN_PACKET_BATTMAN_SWITCHOFF:
+				power_set_shutdown();
+				break; /*
 			case CAN_PACKET_INFINITY_SET_CURRENT:
 			    break;
 			case CAN_PACKET_INFINITY_STATUS:
@@ -95,7 +100,8 @@ static THD_FUNCTION(can_process_thread, arg) {
                             float rpm = (float)utils_parse_float32(rxmsg.data8, &ind);
                             float current = (float)utils_parse_float32(rxmsg.data8, &ind);
                             infinity_current = current;
-			    break;
+			    break; */
+			
 			default:
 			    break;
 		    }

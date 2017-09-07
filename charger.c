@@ -16,6 +16,7 @@ static volatile bool is_charging;
 static volatile float input_voltage;
 static volatile float output_voltage;
 static volatile bool charge_enabled = true;
+static volatile bool storage = false;
 static volatile float current_control_integral = 0.0;
 static volatile systime_t lastTime;
 static volatile bool balancing = false;
@@ -159,6 +160,9 @@ void charger_update(void)
         ltc6803_disable_balance_all();
     }
     lastTime = chVTGetSystemTime();
+	
+	//TODO : storage mode
+	
 }
 
 bool charger_is_charging(void)

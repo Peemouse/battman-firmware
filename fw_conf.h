@@ -5,6 +5,6 @@
 #define BATTMAN_4_2
 // Define firmware version
 #define FW_VERSION_MAJOR 0
-#define FW_VERSION_MINOR 1
+#define FW_VERSION_MINOR 2
 
 #endif /* _FW_CONF_H_ */

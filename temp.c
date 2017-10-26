@@ -16,7 +16,7 @@ void temp_update(void) {
 	float boardTemp;
 	float* ltc6803Temp; //[0]=battery temp, [1]=not used, [2]=Internal LTC6803 temp
 		
-	boardTemp = analog_temperature();
+	boardTemp = analog_pcb_temperature();
 	ltc6803Temp = ltc6803_get_temp();
 
 //TRIGGERING FAULTS & WARNINGS

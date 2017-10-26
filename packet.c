@@ -144,15 +144,21 @@ static void process_packet(unsigned char *data, unsigned int len)
             packet_send_buffer[inx++] = FW_VERSION_MINOR + '0';
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
             break;
+            
         case PACKET_CONSOLE:
             data[len] = '\0';
             console_process_command(data);
             break;
+            
         case PACKET_GET_DATA:
             packet_send_buffer[inx++] = PACKET_GET_DATA;
             utils_append_float32(packet_send_buffer, current_monitor_get_bus_voltage(), &inx);
-            utils_append_float32(packet_send_buffer, analog_temperature(), &inx);
+            utils_append_float32(packet_send_buffer, analog_pcb_temperature(), &inx);
+            float* temps = ltc6803_get_temp();
+            utils_append_float32(packet_send_buffer, temps[0], &inx); //TODO : TBC if it's really the [0]
             utils_append_float32(packet_send_buffer, current_monitor_get_current(), &inx);
+            utils_append_float32(packet_send_buffer, analog_discharge_voltage(), &inx);
+            utils_append_float32(packet_send_buffer, charger_get_input_voltage(), &inx);
             utils_append_float32(packet_send_buffer, charger_get_output_voltage(), &inx);
             packet_send_buffer[inx++] = faults_get_faults();
             utils_append_uint16(packet_send_buffer, faults_get_warnings(), &inx); //Added
@@ -160,6 +166,7 @@ static void process_packet(unsigned char *data, unsigned int len)
             packet_send_buffer[inx++] = charger_is_charging();
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
             break;
+            
         case PACKET_GET_CELLS:
             packet_send_buffer[inx++] = PACKET_GET_CELLS;
             float* cells = ltc6803_get_cell_voltages();
@@ -169,12 +176,14 @@ static void process_packet(unsigned char *data, unsigned int len)
             }
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
             break;
+            
         case PACKET_ERASE_NEW_FW:
             res = fw_updater_erase_new_firmware();
             packet_send_buffer[inx++] = PACKET_ERASE_NEW_FW;
             packet_send_buffer[inx++] = res == FLASH_COMPLETE ? 1 : 0;
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
             break;
+            
         case PACKET_WRITE_NEW_FW:
             offset = utils_parse_uint32(data, &inx);
             res = fw_updater_write_firmware(offset, data + inx, len - inx);
@@ -183,9 +192,11 @@ static void process_packet(unsigned char *data, unsigned int len)
             packet_send_buffer[inx++] = res == FLASH_COMPLETE ? 1 : 0;
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
             break;
+            
         case PACKET_JUMP_BOOTLOADER:
             fw_updater_jump_bootloader();
             break;
+            
         case PACKET_CONFIG_SET_FIELD:
             config_addr = utils_parse_uint16(data, &inx);
             utils_reverse_copy(config_value, data + inx, len - inx);
@@ -198,13 +209,15 @@ static void process_packet(unsigned char *data, unsigned int len)
             inx += len - readInx;
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
             break;
+            
         case PACKET_CONFIG_GET_ALL:
             // Note: the config struct is sent in little endian
             packet_send_buffer[inx++] = PACKET_CONFIG_GET_ALL;
             memcpy(packet_send_buffer + inx, config_get_configuration(), sizeof(Config));
             inx += sizeof(Config);
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
-            break;	
+            break;
+         
         default:
             break;
     }

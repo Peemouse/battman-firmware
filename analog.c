@@ -65,7 +65,7 @@ void analog_update(void)
     adcsample_t samples4[1];
     adcConvert(&ADCD4, &adc4, samples4, 1);
     thermistor = samples4[0];
-    if (analog_temperature() > 100) //To move in temperature control
+    if (analog_pcb_temperature() > 100.0) //TODO : move in temperature control
         faults_set_fault(FAULT_BOARD_TEMP);
 }
 
@@ -74,9 +74,9 @@ float analog_charger_input_voltage(void)
     return (float)charger_input_voltage / 4095.0 * 3.3 * (51000.0 + 18000.0 + 4700.0) / 4700.0;
 }
 
-float analog_temperature(void)
-{
-    return (1.0 / ((logf(((4095.0 * 10000.0) / thermistor - 10000.0) / 10000.0) / 3434.0) + (1.0 / 298.15)) - 273.15);
+float analog_pcb_temperature(void) {
+	float result = (1.0 / ((logf(((4095.0 * 10000.0) / (float)thermistor - 10000.0) / 10000.0) / 3434.0) + (1.0 / 298.15)) - 273.15);
+	return result;
 }
 
 float analog_discharge_voltage(void)

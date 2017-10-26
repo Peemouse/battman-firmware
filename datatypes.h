@@ -2,6 +2,7 @@
 #define _DATATYPES_H_
 
 #include "ch.h"
+#include "fw_conf.h"
 
 typedef enum
 {
@@ -18,14 +19,23 @@ typedef enum
     PACKET_CONFIG_GET_ALL = 0x0A
 } PacketID;
 
-// typedef enum
-// {
-//     CAN_PACKET_SWITCHOFF,
-// 	CAN_PACKET_INFINITY_SET_CURRENT:
-// 	CAN_PACKET_INFINITY_STATUS,
-// 	CAN_PACKET_VESC_STOP,
-// 	CAN_PACKET_VESC_GETMCCONF,
-// } CANPacketID;
+#ifdef ESCISVESC
+typedef enum //From VESC FW3.29
+{
+	CAN_PACKET_SET_DUTY = 0,
+	CAN_PACKET_SET_CURRENT,
+	CAN_PACKET_SET_CURRENT_BRAKE,
+	CAN_PACKET_SET_RPM,
+	CAN_PACKET_SET_POS,
+	CAN_PACKET_FILL_RX_BUFFER,
+	CAN_PACKET_FILL_RX_BUFFER_LONG,
+	CAN_PACKET_PROCESS_RX_BUFFER,
+	CAN_PACKET_PROCESS_SHORT_BUFFER,
+	CAN_PACKET_STATUS,
+	CAN_PACKET_SET_CURRENT_REL,
+	CAN_PACKET_SET_CURRENT_BRAKE_REL
+} CANPacketID;
+#endif
 
 typedef enum
 {
@@ -95,7 +105,7 @@ typedef enum
     PRECHARGING
 } PowerStatus;
 
-
+//If a change is done on the Config structure below, it has to be done also in serialization (packet.c) and initialization (config.c)
 typedef struct __attribute__((__packed__))
 {
     volatile uint8_t CANDeviceID;
@@ -123,14 +133,16 @@ typedef struct __attribute__((__packed__))
     volatile uint16_t prechargeTimeout;
     volatile float balanceStartVoltage;
     volatile float balanceDifferenceThreshold;
-    volatile bool chargerDisconnectShutdown;
 	volatile float tempBoardWarning; //Added
 	volatile float tempBoardCutoff; //Added
 	volatile float tempBattWarning; //Added
 	volatile float tempBattCutoff; //Added
+	volatile uint8_t sleepModeTime; //Added
 	//volatile float tempLTC6803BalCutoff; //Hardcoded
+	volatile bool chargerDisconnectShutdown;
 	volatile bool isBattTempSensor; //Added
 	volatile bool enBuzzer; //Added
+	volatile bool enSleepMode; //Added
 } Config;
 
 typedef struct
@@ -143,7 +155,7 @@ typedef struct
     uint8_t year;
 } Time;
 
-typedef struct //To complete
+typedef struct //TODO : to complete
 {
     float busVoltage;
 	float current;

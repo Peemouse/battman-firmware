@@ -9,7 +9,7 @@ static float coulomb_count;
 static systime_t prevTime;
 float avgCellIntResistance;
 float battIntResistance;
-float maxVoltageSag[2];//[1}=voltage sag; [1]=current when it happened
+float maxVoltageSag[2];//[1]=voltage sag; [1]=current when it happened
 float idleVoltage;
 
 void soc_init(void)
@@ -33,13 +33,18 @@ void soc_update(void)
 	
 	
     coulomb_count -= current * dt;
-	
+
+//DELTA U : difference between sum of all cellls and main voltage measured
 	for (uint8_t i = 0; i< config->numCells; i++) {
 		sumCellsVoltage += cells[i];
 	}
-	if ((sumCellsVoltage - battVoltage) > 2.0){
-		//TODO : battery voltage inconsistency
+	if ((sumCellsVoltage - battVoltage) < 0.0) {
+		float deltaU = battVoltage - sumCellsVoltage;
+		if (deltaU > 2.0) {
+			//TODO : battery voltage inconsistency
+		}
 	}
+
 	
 //UNDER VOLTAGE	
 	if (battVoltage < config->lowVoltageWarning) {
@@ -55,7 +60,7 @@ void soc_update(void)
 	if (battVoltage > config->highVoltageWarning) {
 		faults_set_warning(WARNING_BATTERY_OV);
 	}
-	if (battVoltage < (config->highVoltageCutoff * config->numCells)) {
+	if (battVoltage > (config->highVoltageCutoff * config->numCells)) {
 		power_disable_discharge();
 		faults_set_fault(FAULT_BATTERY_OV);
 		power_set_shutdown();
@@ -86,7 +91,8 @@ void soc_update(void)
 			maxVoltageSag[1] = current;
 		}
 	}
-	
+
+
 	//TODO : log values to estimate battery health
 }
 

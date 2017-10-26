@@ -81,7 +81,7 @@ void console_process_command(char *command)
         console_printf("\r\n");
     }
     else if (strcmp(argv[0], "temp") == 0) {
-        float temp = analog_temperature();
+        float temp = analog_pcb_temperature();
         console_printf("Board temperature: %.2f degrees C\n", (double)temp);
         console_printf("\r\n");
     }

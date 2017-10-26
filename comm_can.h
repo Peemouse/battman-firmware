@@ -2,7 +2,11 @@
 #define _COMM_CAN_H_
 
 #include "ch.h"
-#include "can_data.h"
+#include "datatypes.h"
+
+#ifndef ESCISVESC
+	#include "can_data.h"
+#endif
 
 #define CAN_BROADCAST 0xFF
 

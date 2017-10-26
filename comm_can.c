@@ -90,18 +90,18 @@ static THD_FUNCTION(can_process_thread, arg) {
 		CANPacketID id = rxmsg.EID >> 16;
 		if ((receiver == CAN_BROADCAST || receiver == config->CANDeviceID) && sender != config->CANDeviceID) {
 		    switch (id) { 
-			case CAN_PACKET_BATTMAN_SWITCHOFF:
-				power_set_shutdown();
-				break; /*
-			case CAN_PACKET_INFINITY_SET_CURRENT:
-			    break;
-			case CAN_PACKET_INFINITY_STATUS:
-                            ind = 0;
-                            float rpm = (float)utils_parse_float32(rxmsg.data8, &ind);
-                            float current = (float)utils_parse_float32(rxmsg.data8, &ind);
-                            infinity_current = current;
-			    break; */
-			
+			// case CAN_PACKET_PROCESS_SHORT_BUFFER:
+// 				ind = 0;
+// 				rx_buffer_last_id = rxmsg.data8[ind++];
+// 				commands_send = rxmsg.data8[ind++];
+// 
+// 				if (commands_send) {
+// 					commands_send_packet(rxmsg.data8 + ind, rxmsg.DLC - ind);
+// 				} else {
+// 					commands_set_send_func(send_packet_wrapper);
+// 					commands_process_packet(rxmsg.data8 + ind, rxmsg.DLC - ind);
+// 				}
+// 				break;			
 			default:
 			    break;
 		    }

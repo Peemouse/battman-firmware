@@ -51,13 +51,16 @@ void ltc6803_init(void)
     configReg[1] = 0b00000000;
     configReg[2] = 0b00000000;
 	if (config->numCells > 4) {
-		configReg[3] = 0b11111111 << (config->numCells-4); //Masks cells according to the battery config
+		configReg[3] = 0b11111111 << (config->numCells-4); //LTC6803 : Masks cells according to the battery config
 	}
 	else {
 		configReg[3] = 0b11111111;	
 	}
     configReg[4] = 0b00000000;
     configReg[5] = 0b00000000;
+	
+	ltc6803_wrcfg(configReg);
+	
     conversionStart = chVTGetSystemTime();
 	
 	ltc6803_diagnostic();
@@ -65,9 +68,11 @@ void ltc6803_init(void)
 
 void ltc6803_update(void)
 {
-    ltc6803_wrcfg(configReg);
+    //ltc6803_wrcfg(configReg);
     if (ST2MS(chVTTimeElapsedSinceX(conversionStart)) > 13)
     {
+		//TODO : implement OPEN WIRE detection (page 28 of LTC6803 datasheet) (STOWAD ->RDCV:store in CELLA(n) -> STOWAD -> RDCV:store in CELLB(n). CELLA(n+1)-CELLB(n+1) > 200mV or CELLLB(n+1) = 5.375V : cell n is open wire)
+		//Also a pack voltage comparison with sum of all cells should be performed.
         ltc6803_rdcv(cells);
         ltc6803_stcvad();
         chThdSleepMicroseconds(13);//Time needed by the LTC6803 to execute measurements
@@ -79,6 +84,7 @@ void ltc6803_update(void)
 
 float* ltc6803_get_cell_voltages(void)
 {
+	
     return cells;
 }
 
@@ -101,6 +107,7 @@ void ltc6803_enable_balance(uint8_t cell)
     {
         configReg[2] |= 1 << (cell - 9);
     }
+	ltc6803_wrcfg(configReg);
 }
 
 void ltc6803_disable_balance(uint8_t cell)
@@ -117,14 +124,17 @@ void ltc6803_disable_balance(uint8_t cell)
     {
         configReg[2] &= ~(1 << (cell - 9));
     }
+	ltc6803_wrcfg(configReg);
 }
 
 void ltc6803_disable_balance_all(void)
 {
-    if (lock)
+    if (lock){
         return;
+	}
     configReg[1] = 0;
     configReg[2] = 0;
+	ltc6803_wrcfg(configReg);
 }
 
 void ltc6803_diagnostic(void) {
@@ -244,14 +254,15 @@ static void ltc6803_rdcv(float cells[12]) //LTC6803 command: Read cells voltage 
     spiExchange(&SPID1, 2, txbuf, rxbuf);
 #endif
     txbuf[0] = 0xFF;
-    for (int j = 0; j < 19; j++)
-    {
+	
+    for (int j = 0; j < 19; j++){
 #ifdef BATTMAN_4_0
         spi_sw_transfer(rxbuf, txbuf, 1);
 #else
         spiExchange(&SPID1, 1, txbuf, rxbuf);
 #endif
-        rx_data[data_counter++] = rxbuf[0];
+	
+		rx_data[j] = rxbuf[0];
     }
     spiUnselect(&SPID1);                /* Slave Select de-assertion.       */
     spiReleaseBus(&SPID1);              /* Ownership release.               */
@@ -261,15 +272,13 @@ static void ltc6803_rdcv(float cells[12]) //LTC6803 command: Read cells voltage 
 
     received_pec = rx_data[18];
     data_pec = pec8_calc(18, &rx_data[0]);
-    if (received_pec != data_pec)
-    {
+    if (received_pec != data_pec){
         pec_error = -1;
+		faults_set_warning(WARNING_LTC6803_ERROR);
 		return;
     }
 
-    for (int k = 0; k < 12; k = k + 2)
-    {
-
+    for (int k = 0; k < 12; k = k + 2){
         byteLow = rx_data[data_counter++];
 
         byteHigh = (uint16_t)(rx_data[data_counter] & 0x0F) << 8;
@@ -280,6 +289,12 @@ static void ltc6803_rdcv(float cells[12]) //LTC6803 command: Read cells voltage 
         byteLow =  (rx_data[data_counter++]) << 4;
 
         cells[k + 1] = (float)(byteLow + byteHigh - 512) * 1.5 / 1000.0;
+    }
+    //check values to detect open wire. If so, value = -1V.
+    for (int l = 0; l < config->numCells; l++) {
+    	if (cells[l]>5.374) {
+    		cells[l]=-1.0;
+    	}
     }
 }
 static void ltc6803_sttmpad(void) { //LTC6803 command: Start temperature ADC Conversions and Poll Status
@@ -378,7 +393,7 @@ static void ltc6803_dagn(void) { //LTC6803 command: Start Diagnose and Poll Stat
     spiReleaseBus(&SPID1);              /* Ownership release.               */	
 }
 
-static void ltc6803_rddgnr(void) { //LTC6803 command: Read temperatures from registers
+static void ltc6803_rddgnr(void) { //LTC6803 command: Read reference voltage
 
 int data_counter = 0;
     int pec_error = 0;
@@ -386,7 +401,7 @@ int data_counter = 0;
     uint8_t received_pec = 0;
     uint8_t txbuf[2];
     uint8_t rxbuf[2];
-    uint8_t rx_data[2];
+    uint8_t rx_data[3];
     txbuf[0] = 0x54;
     txbuf[1] = 0x6B;
 
@@ -399,7 +414,7 @@ int data_counter = 0;
     spiExchange(&SPID1, 2, txbuf, rxbuf);
 #endif
     txbuf[0] = 0xFF;
-    for (int j = 0; j < 2; j++)
+    for (int j = 0; j < 3; j++)
     {
 #ifdef BATTMAN_4_0
         spi_sw_transfer(rxbuf, txbuf, 1);
@@ -414,13 +429,13 @@ int data_counter = 0;
     data_counter = 0;
     uint16_t byteLow, byteHigh;
 
-    received_pec = rx_data[2];
-    data_pec = pec8_calc(6, &rx_data[0]);
+    received_pec = rx_data[3];
+    data_pec = pec8_calc(2, &rx_data[0]);
 	
     if (received_pec != data_pec)
     {
         pec_error = -1;
-		return;
+		faults_set_warning(WARNING_LTC6803_ERROR);
     }
 	
 	byteLow = rx_data[data_counter++];
@@ -435,8 +450,8 @@ static bool ltc6803_checkVoltage(float diagVoltage) { //Check if the voltage is 
 	float upperLimit,lowerLimit;
 	bool isGood=true;
 	
-	upperLimit = 2.5*0.84;
-	lowerLimit = 2.5*1.16;
+	upperLimit = 2.5*1.16;
+	lowerLimit = 2.5*0.84;
 	if (diagVoltage<lowerLimit || diagVoltage>upperLimit) {
 		isGood=false;
 	}

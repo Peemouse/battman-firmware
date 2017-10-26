@@ -56,12 +56,16 @@ void config_load_default_configuration(void)
     config.prechargeTimeout = 500;
     config.balanceStartVoltage = 3.5;
     config.balanceDifferenceThreshold = 0.01;
-    config.chargerDisconnectShutdown = true;
 	config.tempBoardWarning = 80.0;
 	config.tempBoardCutoff = 100.0;
+	config.tempBattWarning = 50.0;
+	config.tempBattCutoff = 70.0;
+	config.sleepModeTime = 60; //Added
 	//config.tempLTC6803BalCutoff = 85.0; //Hardcoded in temp.c
+	config.chargerDisconnectShutdown = true;
 	config.isBattTempSensor = false;
 	config.enBuzzer = true;
+	config.enSleepMode = false;
 }
 
 Config* config_get_configuration(void)

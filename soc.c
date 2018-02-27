@@ -47,32 +47,32 @@ void soc_update(void)
 
 	
 //UNDER VOLTAGE	
-	if (battVoltage < config->lowVoltageWarning) {
+	if (battVoltage < config->cellLowVoltageWarning) {
 		faults_set_warning(WARNING_BATTERY_UV);
 	}
-	if (battVoltage < config->lowVoltageCutoff) {
-		power_disable_discharge();
+	if (battVoltage < config->cellLowVoltageCutoff) {
+		power_switchOff();
 		faults_set_fault(FAULT_BATTERY_UV);
 		power_set_shutdown();
 	}
 	
 //OVER VOLTAGE	
-	if (battVoltage > config->highVoltageWarning) {
+	if (battVoltage > config->cellHighVoltageWarning) {
 		faults_set_warning(WARNING_BATTERY_OV);
 	}
-	if (battVoltage > (config->highVoltageCutoff * config->numCells)) {
-		power_disable_discharge();
+	if (battVoltage > (config->cellHighVoltageCutoff * config->numCells)) {
+		power_switchOff();
 		faults_set_fault(FAULT_BATTERY_OV);
 		power_set_shutdown();
 	}
 	for(uint8_t i=0;i < config->numCells;i++) {
 		if (cells[i] < config->emptyCellVoltage) {
-			power_disable_discharge();
+			power_switchOff();
 			faults_set_fault(FAULT_CELL_UV);
 			power_set_shutdown();
 		}
-		else if (cells[i] > config->highVoltageCutoff) {
-			power_disable_discharge();
+		else if (cells[i] > config->cellHighVoltageCutoff) {
+			power_switchOff();
 			faults_set_fault(FAULT_CELL_OV);
 		}
 	}

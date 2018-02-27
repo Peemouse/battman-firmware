@@ -155,7 +155,7 @@ static void process_packet(unsigned char *data, unsigned int len)
             utils_append_float32(packet_send_buffer, current_monitor_get_bus_voltage(), &inx);
             utils_append_float32(packet_send_buffer, analog_pcb_temperature(), &inx);
             float* temps = ltc6803_get_temp();
-            utils_append_float32(packet_send_buffer, temps[0], &inx); //TODO : TBC if it's really the [0]
+            utils_append_float32(packet_send_buffer, temps[0], &inx); //TBC if it's really the [0]
             utils_append_float32(packet_send_buffer, current_monitor_get_current(), &inx);
             utils_append_float32(packet_send_buffer, analog_discharge_voltage(), &inx);
             utils_append_float32(packet_send_buffer, charger_get_input_voltage(), &inx);
@@ -163,16 +163,20 @@ static void process_packet(unsigned char *data, unsigned int len)
             packet_send_buffer[inx++] = faults_get_faults();
             utils_append_uint16(packet_send_buffer, faults_get_warnings(), &inx); //Added
 			packet_send_buffer[inx++] = power_get_status(); //Added
-            packet_send_buffer[inx++] = charger_is_charging();
+			packet_send_buffer[inx++] = charger_get_mahCharged();
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
             break;
             
         case PACKET_GET_CELLS:
             packet_send_buffer[inx++] = PACKET_GET_CELLS;
             float* cells = ltc6803_get_cell_voltages();
-            for (uint8_t i = 0; i < config_get_configuration()->numCells; i++)
-            {
+			bool* isBalancingCell = charger_get_balancing_cells();
+			
+            for (uint8_t i = 0; i < config_get_configuration()->numCells; i++) {
                 utils_append_float32(packet_send_buffer, cells[i], &inx);
+            }
+			for (uint8_t i = 0; i < config_get_configuration()->numCells; i++) {
+                packet_send_buffer[inx++] = isBalancingCell[i];
             }
             packet_send_packet((unsigned char*)packet_send_buffer, inx);
             break;

@@ -4,3 +4,4 @@ build/
 *.swo
 *.swn
 *.swm
+.DS_Store

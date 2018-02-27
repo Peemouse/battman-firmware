@@ -22,6 +22,7 @@
 #include "faults.h"
 #include "packet.h"
 #include "console.h"
+#include "flashmem.h"
 
 static const I2CConfig i2cconfig = {
     STM32_TIMINGR_PRESC(15U) |
@@ -37,7 +38,7 @@ static THD_FUNCTION(led_update, arg) {
 
     chRegSetThreadName("LED update");
 
-    for(;;)
+    for(;;) //TODO : review led management
     {
         if (power_is_shutdown())
         {
@@ -123,16 +124,14 @@ static THD_FUNCTION(buzzer_update, arg) {
     /*}*/
     for(;;)
     {
-        if (power_is_shutdown())
-        {
+        if (power_is_shutdown()) {
             buzzer_set_frequency(0);
             break;
         }
         buzzer_set_frequency(0);
         chThdSleepMilliseconds(100);
         continue;
-        for (int i = 100; i < 4000; i+=5)
-        {
+        for (int i = 100; i < 4000; i+=5) {
             buzzer_set_frequency(i);
             chThdSleepMilliseconds(1);
         }
@@ -195,10 +194,9 @@ int main(void) {
     led_rgb_init();
     chThdCreateStatic(led_update_wa, sizeof(led_update_wa), NORMALPRIO, led_update, NULL);
     comm_usb_init();
+	flashmem_init();
 	
-
-    while(1)
-    {
+    while(1) {
         analog_update();
         ltc6803_update();
         current_monitor_update();
@@ -209,8 +207,9 @@ int main(void) {
 		temp_update(); //Added
         accessory_update();
         comm_can_update();
-        if (power_is_shutdown())
-        {
+		flashmem_update();
+		
+        if (power_is_shutdown()) {
             comm_usb_deinit();
             led_rgb_set(0);
             buzzer_set_frequency(0);

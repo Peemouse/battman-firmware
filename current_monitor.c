@@ -88,7 +88,7 @@ void current_monitor_update(void)
 	
     if (current > config->maxCurrentCutoff || !palReadPad(CURR_ALERT_GPIO, CURR_ALERT_PIN))
     {
-        power_disable_discharge();
+        power_switchOff();
         faults_set_fault(FAULT_OVERCURRENT);
     }
 	
@@ -97,7 +97,7 @@ void current_monitor_update(void)
 	}
 	else {
 		if (chVTTimeElapsedSinceX(overContCurrentTime) >= (config->continuousCurrentCutoffTime * 1000)) {
-			power_disable_discharge();
+			power_switchOff();
 			faults_set_fault(FAULT_OVERCURRENT);
 		}
 	}
@@ -132,7 +132,7 @@ static void curr_alert(EXTDriver *extp, expchannel_t channel) {
 
     chSysLockFromISR();
 
-    power_disable_discharge();
+    power_switchOff();
     faults_set_fault(FAULT_OVERCURRENT);
 
     chSysUnlockFromISR();

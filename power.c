@@ -6,6 +6,7 @@
 #include "charger.h"
 #include "rtcc.h"
 #include "faults.h"
+#include "comm_can.h"
 
 static volatile bool discharge_enabled = false;
 static volatile bool precharged = false;
@@ -18,9 +19,10 @@ static volatile bool shutdownOrder;
 static volatile bool shutdownStarted = false;
 static volatile bool shutdown = false;
 static volatile systime_t shutdownStartTime;
+static volatile systime_t sleepModeTimer;
+static volatile systime_t btnLongPressTimer;
 static volatile Config *config;
-
-static void powerSwitchOff(void);
+static volatile bool memLongPress = false;
 
 void power_init(void)
 {
@@ -63,12 +65,44 @@ void power_update(void) {
 //         palSetPad(PWR_SW_GPIO, PWR_SW_PIN);
 //     }
 
+//INPUT READINGS
+bool btnShortPress = false;
+bool btnLongPress = false;
+
+	//Button (differencing short and long press
+	if (palReadPad(PWR_BTN_GPIO, PWR_BTN_PIN) {
+		if (!memLongPress && ST2MS(chVTTimeElapsedSinceX(btnLongPressTimer) > 3000)) { //long press delay
+			btnLongPress = true;
+			memLongPress = true;
+		}
+	}
+	else {
+		if (btnPreviousState && !memLongPress) { //Falling edge of button
+			btnShortPress = true;
+		}
+		btnLongPressTimer = chVTGetSystemTime();
+		memLongPress = false;
+	}
+	btnPreviousState = palReadPad(PWR_BTN_GPIO, PWR_BTN_PIN);
+	
+
 //DISCHARGE MANAGEMENT
 
+	if (charger_is_charging()) {
+		power_status = CHARGING;
+	}
+	else (power_status == CHARGING) {
+		power_status = STANDBY;
+	}
+	
 	if (faults_get_faults() != FAULT_NONE) { //Check the fault presence
-			powerSwitchOff();
-			discharge_enabled=false;
-			power_status = STANDBY;
+		power_switchOff();
+		discharge_enabled=false;
+	}
+	else if (power_on_event == EVENT_CHARGER || analog_charger_input_voltage() > 6.0) {
+		power_switchOff();
+		discharge_enabled=false;
+		charger_enable();
 	}
 	else {
 		if (discharge_enabled) {
@@ -107,18 +141,31 @@ void power_update(void) {
 		}
 		else
 		{
-			powerSwitchOff();
+			power_switchOff();
 			precharged = false;
 		}
 	}
 	
-//SHUTDOWN MANAGEMENT
-
-	if (!power_button_prev && palReadPad(PWR_BTN_GPIO, PWR_BTN_PIN)) {
+	//Sleep mode
+	if (current_monitor_get_current() < -0.5 || current_monitor_get_current() > 0.5) {
+		sleepModeTimer = chVTGetSystemTime();
+	}
+	if (enSleepMode && power_status == DISCHARGING && (ST2MS(chVTTimeElapsedSinceX(sleepModeTimer)) > (config->sleepModeDelay * 60000.0)) {
+		enterSleepMode = true;
+	}
+	
+	//Button management
+	if (power_status == CHARGING) {
+		if (btnLongPress) {
+			charger_enable_storage();
+		}
+	else if (btnShortPress || enterSleepMode)) {
 		shutdownOrder = true;
 	}
-	power_button_prev = palReadPad(PWR_BTN_GPIO, PWR_BTN_PIN);
 	
+	
+//SHUTDOWN MANAGEMENT
+
     if (shutdownOrder || (config->chargerDisconnectShutdown && power_on_event == EVENT_CHARGER && analog_charger_input_voltage() < 6.0))
     {
         shutdown = true; 
@@ -128,7 +175,7 @@ void power_update(void) {
         if (!shutdownStarted)
         {
             shutdownStartTime = chVTGetSystemTime();
-			powerSwitchOff();
+			power_switchOff();
             shutdownStarted = true;
         }
         if (ST2MS(chVTTimeElapsedSinceX(shutdownStartTime)) > config->shutdownDelay)
@@ -143,7 +190,7 @@ void power_update(void) {
     }
 	
 	if (shutdown) {
-        powerSwitchOff();
+        power_switchOff();
 		rtcc_enable_alarm();
 		palClearPad(PWR_SW_GPIO, PWR_SW_PIN);
 		//If flash memory log implemented, wait for the end of writing before release PWR_SW
@@ -165,7 +212,7 @@ void power_update(void) {
         if (!shutdownStarted)
         {
             shutdownStartTime = chVTGetSystemTime();
-			powerSwitchOff();
+			power_switchOff();
             shutdownStarted = true;
         }
         if (ST2MS(chVTTimeElapsedSinceX(shutdownStartTime)) > config->shutdownDelay)
@@ -182,13 +229,22 @@ void power_update(void) {
     }
 	*/
 }
-//TODO : clean command of shutdown
 
-void powerSwitchOff(void){
-	palClearPad(DSG_SW_GPIO, DSG_SW_PIN);
-    palClearPad(PCHG_SW_GPIO, PCHG_SW_PIN);
-	power_status = STANDBY;
-	precharged = false;
+void power_switchOff(void){
+	
+	if (power_status == STANDBY || power_status == CHARGING) {
+		return;
+	}
+	else {
+		if (config->enVescCanComm) {
+			comm_can_set_current(config->masterVescCanID, 0.0);
+		}
+		palClearPad(DSG_SW_GPIO, DSG_SW_PIN);
+		palClearPad(PCHG_SW_GPIO, PCHG_SW_PIN);
+		power_status = STANDBY;
+		precharged = false;
+		discharge_enabled = false;
+	}
 }
 
 void power_enable_discharge(void)
@@ -196,11 +252,12 @@ void power_enable_discharge(void)
     discharge_enabled = true;
 }
 
-void power_disable_discharge(void)
-{
-    discharge_enabled = false;
-    palClearPad(DSG_SW_GPIO, DSG_SW_PIN);
-}
+// void power_disable_discharge(void)
+// {
+    // discharge_enabled = false;
+    // palClearPad(DSG_SW_GPIO, DSG_SW_PIN);
+	
+// }
 
 void power_set_shutdown(void)
 {

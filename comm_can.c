@@ -36,7 +36,7 @@ void comm_can_init(void)
     chThdCreateStatic(can_process_thread_wa, sizeof(can_process_thread_wa), NORMALPRIO, can_process_thread, NULL);
 }
 
-static float infinity_current = 99;
+//static float infinity_current = 99;
 
 static THD_FUNCTION(can_read_thread, arg) {
     (void)arg;
@@ -90,6 +90,21 @@ static THD_FUNCTION(can_process_thread, arg) {
 		CANPacketID id = rxmsg.EID >> 16;
 		if ((receiver == CAN_BROADCAST || receiver == config->CANDeviceID) && sender != config->CANDeviceID) {
 		    switch (id) { 
+				case CAN_PACKET_STATUS:
+						for (int i = 0;i < CAN_STATUS_MSGS_TO_STORE;i++) {
+							stat_tmp = &stat_msgs[i];
+							if (stat_tmp->id == id || stat_tmp->id == -1) {
+								ind = 0;
+								stat_tmp->id = id;
+								stat_tmp->rx_time = chVTGetSystemTime();
+								stat_tmp->rpm = (float)buffer_get_int32(rxmsg.data8, &ind);
+								stat_tmp->current = (float)buffer_get_int16(rxmsg.data8, &ind) / 10.0;
+								stat_tmp->duty = (float)buffer_get_int16(rxmsg.data8, &ind) / 1000.0;
+								break;
+							}
+						}
+				break;
+				
 			// case CAN_PACKET_PROCESS_SHORT_BUFFER:
 // 				ind = 0;
 // 				rx_buffer_last_id = rxmsg.data8[ind++];
@@ -114,10 +129,10 @@ static THD_FUNCTION(can_process_thread, arg) {
     }
 }
 
-float comm_can_get_infinity_current(void)
-{
-    return (float)infinity_current;
-}
+// float comm_can_get_infinity_current(void)
+// {
+    // return (float)infinity_current;
+// }
 
 void comm_can_update(void)
 {
@@ -125,15 +140,91 @@ void comm_can_update(void)
 
 void comm_can_transmit(uint8_t receiver, CANPacketID packetID, uint8_t *data, uint8_t len)
 {
-    CANTxFrame txmsg;
-    txmsg.IDE = CAN_IDE_EXT;
-    txmsg.EID = config->CANDeviceID | (receiver << 8) | (packetID << 16);
-    txmsg.RTR = CAN_RTR_DATA;
-    txmsg.DLC = len;
-    memcpy(txmsg.data8, data, len);
+	if (config->enVescCanComm) {
+		CANTxFrame txmsg;
+		txmsg.IDE = CAN_IDE_EXT;
+		txmsg.EID = config->CANDeviceID | (receiver << 8) | (packetID << 16);
+		txmsg.RTR = CAN_RTR_DATA;
+		txmsg.DLC = len;
+		memcpy(txmsg.data8, data, len);
 
-    chMtxLock(&can_mtx);
-    canTransmit(&CAND1, CAN_ANY_MAILBOX, &txmsg, MS2ST(20));
-    chMtxUnlock(&can_mtx);
+		chMtxLock(&can_mtx);
+		canTransmit(&CAND1, CAN_ANY_MAILBOX, &txmsg, MS2ST(20));
+		chMtxUnlock(&can_mtx);
+	}	
+	else {
+		return;
+	}
 }
 
+void comm_can_send_buffer(uint8_t controller_id, uint8_t *data, unsigned int len, bool send) {
+	uint8_t send_buffer[8];
+
+	if (len <= 6) {
+		uint32_t ind = 0;
+		send_buffer[ind++] = config->CANDeviceID;
+		send_buffer[ind++] = send;
+		memcpy(send_buffer + ind, data, len);
+		ind += len;
+		comm_can_transmit_eid(controller_id |
+				((uint32_t)CAN_PACKET_PROCESS_SHORT_BUFFER << 8), send_buffer, ind);
+	} else {
+		unsigned int end_a = 0;
+		for (unsigned int i = 0;i < len;i += 7) {
+			if (i > 255) {
+				break;
+			}
+
+			end_a = i + 7;
+
+			uint8_t send_len = 7;
+			send_buffer[0] = i;
+
+			if ((i + 7) <= len) {
+				memcpy(send_buffer + 1, data + i, send_len);
+			} else {
+				send_len = len - i;
+				memcpy(send_buffer + 1, data + i, send_len);
+			}
+
+			comm_can_transmit_eid(controller_id |
+					((uint32_t)CAN_PACKET_FILL_RX_BUFFER << 8), send_buffer, send_len + 1);
+		}
+
+		for (unsigned int i = end_a;i < len;i += 6) {
+			uint8_t send_len = 6;
+			send_buffer[0] = i >> 8;
+			send_buffer[1] = i & 0xFF;
+
+			if ((i + 6) <= len) {
+				memcpy(send_buffer + 2, data + i, send_len);
+			} else {
+				send_len = len - i;
+				memcpy(send_buffer + 2, data + i, send_len);
+			}
+
+			comm_can_transmit_eid(controller_id |
+					((uint32_t)CAN_PACKET_FILL_RX_BUFFER_LONG << 8), send_buffer, send_len + 2);
+		}
+
+		uint32_t ind = 0;
+		send_buffer[ind++] = config->CANDeviceID;
+		send_buffer[ind++] = send;
+		send_buffer[ind++] = len >> 8;
+		send_buffer[ind++] = len & 0xFF;
+		unsigned short crc = crc16(data, len);
+		send_buffer[ind++] = (uint8_t)(crc >> 8);
+		send_buffer[ind++] = (uint8_t)(crc & 0xFF);
+
+		comm_can_transmit_eid(controller_id |
+				((uint32_t)CAN_PACKET_PROCESS_RX_BUFFER << 8), send_buffer, ind++);
+	}
+	
+void comm_can_set_current(uint8_t controller_id, float current) {
+	int32_t send_index = 0;
+	uint8_t buffer[4];
+	buffer_append_int32(buffer, (int32_t)(current * 1000.0), &send_index);
+	comm_can_transmit(controller_id |
+			((uint32_t)CAN_PACKET_SET_CURRENT << 8), buffer, send_index);
+	}
+}

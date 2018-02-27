@@ -82,53 +82,47 @@ void ltc6803_update(void)
     }
 }
 
-float* ltc6803_get_cell_voltages(void)
-{
-	
+float* ltc6803_get_cell_voltages(void) {
     return cells;
 }
 
 float* ltc6803_get_temp(void) {
-	
     return ltc6803Temp;
 }
 
-void ltc6803_enable_balance(uint8_t cell)
-{
-    if (lock)
+void ltc6803_enable_balance(uint8_t cell) { //@cell from 1 to 12
+    if (lock) {
         return;
-    if (cell > config->numCells)
+	}
+    if (cell > config->numCells) {
         return;
-    if (cell <= 8)
-    {
+	}
+    if (cell <= 8) {
         configReg[1] |= 1 << (cell - 1);
     }
-    else
-    {
+    else {
         configReg[2] |= 1 << (cell - 9);
     }
 	ltc6803_wrcfg(configReg);
 }
 
-void ltc6803_disable_balance(uint8_t cell)
-{
-    if (lock)
+void ltc6803_disable_balance(uint8_t cell) {
+    if (lock) {
         return;
-    if (cell > config->numCells)
+	}
+    if (cell > config->numCells) {
         return;
-    if (cell <= 8)
-    {
+	}
+    if (cell <= 8) {
         configReg[1] &= ~(1 << (cell - 1));
     }
-    else
-    {
+    else {
         configReg[2] &= ~(1 << (cell - 9));
     }
 	ltc6803_wrcfg(configReg);
 }
 
-void ltc6803_disable_balance_all(void)
-{
+void ltc6803_disable_balance_all(void){
     if (lock){
         return;
 	}

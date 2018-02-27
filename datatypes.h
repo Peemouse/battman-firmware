@@ -16,7 +16,8 @@ typedef enum
     PACKET_CONFIG_SET_FIELD = 0x07,
     PACKET_CONFIG_GET_FIELD = 0x08,
     PACKET_CONFIG_SET_ALL = 0x09,
-    PACKET_CONFIG_GET_ALL = 0x0A
+    PACKET_CONFIG_GET_ALL = 0x0A,
+	PACKET_SET_TIME = 0x0B
 } PacketID;
 
 #ifdef ESCISVESC
@@ -105,7 +106,7 @@ typedef enum
     PRECHARGING
 } PowerStatus;
 
-//If a change is done on the Config structure below, it has to be done also in serialization (packet.c) and initialization (config.c)
+//If a change is done on the Config structure below, it has to be done also in serialization (packet.c) and initialization (config.c) + dashboard.
 typedef struct __attribute__((__packed__))
 {
     volatile uint8_t CANDeviceID;
@@ -114,16 +115,18 @@ typedef struct __attribute__((__packed__))
     volatile float emptyCellVoltage;
 	//volatile float CellOVCutoff;
     volatile float packCapacity;
-    volatile float lowVoltageCutoff;
-    volatile float lowVoltageWarning;
-    volatile float highVoltageCutoff;
-    volatile float highVoltageWarning;
+    volatile float cellLowVoltageCutoff;
+    volatile float cellLowVoltageWarning;
+    volatile float cellHighVoltageCutoff;
+    volatile float cellHighVoltageWarning;
+	volatile float cellEndChargeVoltage;
+	volatile float cellStorageVoltage;
     volatile float maxCurrentCutoff;
     volatile float maxContinuousCurrent;
     volatile uint8_t continuousCurrentCutoffTime;
     volatile uint8_t continuousCurrentCutoffWarning;
     volatile float maxChargeCurrent;
-    volatile float chargeVoltage;
+    //volatile float chargeVoltage;
     volatile float chargeCurrent;
     volatile uint16_t turnOnDelay;
     volatile uint16_t shutdownDelay;
@@ -137,12 +140,14 @@ typedef struct __attribute__((__packed__))
 	volatile float tempBoardCutoff; //Added
 	volatile float tempBattWarning; //Added
 	volatile float tempBattCutoff; //Added
-	volatile uint8_t sleepModeTime; //Added
+	volatile uint8_t sleepModeDelay; //Added
+	volatile uint8_t masterVescCanID; //Added
 	//volatile float tempLTC6803BalCutoff; //Hardcoded
 	volatile bool chargerDisconnectShutdown;
 	volatile bool isBattTempSensor; //Added
 	volatile bool enBuzzer; //Added
 	volatile bool enSleepMode; //Added
+	volatile bool enVescCanComm; //Added
 } Config;
 
 typedef struct
@@ -155,14 +160,5 @@ typedef struct
     uint8_t year;
 } Time;
 
-typedef struct //TODO : to complete
-{
-    float busVoltage;
-	float current;
-	float batteryTemp;
-	float boardTemp;
-	PowerStatus power_status;
-	Fault fault_code;
-} bms_values;
 
 #endif /* _DATATYPES_H_ */

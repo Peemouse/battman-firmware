@@ -10,6 +10,9 @@ bool charger_is_balancing(void);
 float charger_get_input_voltage(void);
 float charger_get_output_voltage(void);
 void charger_enable(void);
+void charger_enable_storage(void);
 void charger_disable(void);
+bool* charger_get_balacing_cells(void);
+uint16_t charger_get_mahCharged(void);
 
 #endif /* _CHARGER_H_ */

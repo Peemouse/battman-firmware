@@ -48,7 +48,7 @@ uint16_t fw_updater_erase_new_firmware(void) {
 void fw_updater_jump_bootloader(void) {
     typedef void (*pFunction)(void);
 
-    power_disable_discharge();
+    power_switchOff();
     comm_usb_deinit();
 
     chSysDisable();
